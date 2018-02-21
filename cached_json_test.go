@@ -16,6 +16,18 @@ func (t *testCacher) GetCachedJSON() *Cache {
 	return &t.Cache
 }
 
+func TestMarshal(t *testing.T) {
+	obj := &testCacher{A: 1, B: true}
+	expected_data := []byte(`{"A":1,"B":true}`)
+	data, err := Marshal(obj)
+	if err != nil {
+		t.Error(err)
+	}
+	if !bytes.Equal(data, expected_data) {
+		t.Errorf("Expected %v but got %v", string(expected_data), string(data))
+	}
+}
+
 func TestUnmarshal_ShouldUndoMarshal(t *testing.T) {
 	obj := &testCacher{A: 1, B: true}
 	data, err := Marshal(obj)

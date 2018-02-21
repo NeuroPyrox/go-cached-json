@@ -13,27 +13,23 @@ type Cache struct {
 	data []byte
 }
 
-func getCachedJSON(obj interface{}) (*Cache, error) {
-	cacher, ok := obj.(Cacher)
-	if !ok {
-		return nil, fmt.Errorf("%T cannot be converted to cachedjson.Object", obj)
-	}
+func getCachedJSON(cacher Cacher) (*Cache, error) {
 	cached_json := cacher.GetCachedJSON()
 	if cached_json == nil {
-		return nil, fmt.Errorf("%T.GetCachedJSON() should not return nil", obj)
+		return nil, fmt.Errorf("%T.GetCachedJSON() should not return nil", cacher)
 	}
 	return cached_json, nil
 }
 
-func Marshal(obj interface{}) ([]byte, error) {
-	cached_json, err := getCachedJSON(obj)
+func Marshal(cacher Cacher) ([]byte, error) {
+	cached_json, err := getCachedJSON(cacher)
 	if err != nil {
 		return nil, err
 	}
 	if cached_json.data != nil {
 		return cached_json.data, nil
 	}
-	data, err := json.Marshal(obj)
+	data, err := json.Marshal(cacher)
 	if err != nil {
 		return nil, err
 	}
@@ -41,12 +37,12 @@ func Marshal(obj interface{}) ([]byte, error) {
 	return data, nil
 }
 
-func Unmarshal(data []byte, obj interface{}) error {
-	cached_json, err := getCachedJSON(obj)
+func Unmarshal(data []byte, cacher Cacher) error {
+	cached_json, err := getCachedJSON(cacher)
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(data, obj)
+	err = json.Unmarshal(data, cacher)
 	if err != nil {
 		return err
 	}
@@ -54,8 +50,8 @@ func Unmarshal(data []byte, obj interface{}) error {
 	return nil
 }
 
-func Update(obj interface{}) error {
-	cached_json, err := getCachedJSON(obj)
+func Update(cacher Cacher) error {
+	cached_json, err := getCachedJSON(cacher)
 	if err != nil {
 		return err
 	}

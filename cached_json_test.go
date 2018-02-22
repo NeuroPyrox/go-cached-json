@@ -2,116 +2,131 @@ package cachedjson
 
 import (
 	"bytes"
-	"reflect"
 	"testing"
 )
 
-type testCacher struct {
-	Cache
-	A int
-	B bool
+type testStruct struct {
+	cache Cache
+	A     int
+	B     string
 }
 
-func (t *testCacher) GetCachedJSON() *Cache {
-	return &t.Cache
-}
-
-func TestMarshal(t *testing.T) {
-	obj := &testCacher{A: 1, B: true}
-	expected_data := []byte(`{"A":1,"B":true}`)
-	data, err := Marshal(obj)
-	if err != nil {
-		t.Error(err)
-	}
-	if !bytes.Equal(data, expected_data) {
-		t.Errorf("Expected %v but got %v", string(expected_data), string(data))
+func TestCache_ShouldBeEmpty_ByDefault(t *testing.T) {
+	var obj testStruct
+	if !obj.cache.IsEmpty() {
+		t.Error("Cache is not empty by default")
 	}
 }
 
-func TestUnmarshal_ShouldUndoMarshal(t *testing.T) {
-	obj := &testCacher{A: 1, B: true}
-	data, err := Marshal(obj)
+func TestCache_ShoudNotBeEmpty_AfterUnmarshal(t *testing.T) {
+	var obj testStruct
+	data := []byte(`{"A":1,"B":"hi"}`)
+	err := obj.cache.Unmarshal(data, &obj)
 	if err != nil {
 		t.Error(err)
 	}
-	obj_copy := new(testCacher)
-	err = Unmarshal(data, obj_copy)
-	if err != nil {
-		t.Log("JSON:", string(data))
-		t.Error(err)
-	}
-	if !reflect.DeepEqual(obj, obj_copy) {
-		t.Error("The following should be equal:")
-		t.Log(obj)
-		t.Log(obj_copy)
+	if obj.cache.IsEmpty() {
+		t.Error("Cache is empty after unmarshalling")
 	}
 }
 
-func TestMarshal_WhenDataIsChanged_ShouldStillReturnSameResult(t *testing.T) {
-	cacher := &testCacher{A: 1, B: true}
-	data, err := Marshal(cacher)
+func TestCache_ShoudNotBeEmpty_AfterUpdate(t *testing.T) {
+	obj := testStruct{A: 1, B: "hi"}
+	err := obj.cache.Update(obj)
 	if err != nil {
 		t.Error(err)
 	}
-	cacher.A = 332
-	data_copy, err := Marshal(cacher)
+	if obj.cache.IsEmpty() {
+		t.Error("Cache is empty after updating")
+	}
+}
+
+func TestCache_ShouldBeEmpty_AfterClear(t *testing.T) {
+	obj := testStruct{A: 1, B: "hi"}
+	err := obj.cache.Update(obj)
+	if err != nil {
+		t.Error(err)
+	}
+	obj.cache.Clear()
+	if !obj.cache.IsEmpty() {
+		t.Error("Cache is not empty after clearing")
+	}
+}
+
+func TestCache_MarshalShouldReturnX_AfterXIsUnmarshalled(t *testing.T) {
+	var obj testStruct
+	data := []byte(`{"A":1,"B":"hi"}`)
+	err := obj.cache.Unmarshal(data, &obj)
+	if err != nil {
+		t.Error(err)
+	}
+	data_copy, err := obj.cache.Marshal()
 	if err != nil {
 		t.Error(err)
 	}
 	if !bytes.Equal(data, data_copy) {
-		t.Error("The following should be equal:")
-		t.Log("Data:", string(data))
-		t.Log("Data Copy:", string(data_copy))
+		t.Errorf("%v != %v", string(data), string(data_copy))
 	}
 }
 
-func TestMarshal_WhenUpdateIsCalled_ShouldReturnUpdatedResult(t *testing.T) {
-	cacher := &testCacher{A: 1, B: true}
-	_, err := Marshal(cacher)
+func TestCache_MarshalShouldReturnError_IfCacheIsEmpty(t *testing.T) {
+	var obj testStruct
+	if _, err := obj.cache.Marshal(); err == nil {
+		t.Error("Marshal does not return error when cache is empty")
+	}
+}
+
+func TestCache_UnmarshalShouldReturnError_IfInvalidJSON(t *testing.T) {
+	var obj testStruct
+	invalid_json := []byte("w8345uiwj8ur")
+	err := obj.cache.Unmarshal(invalid_json, &obj)
+	if err == nil {
+		t.Error("Expected error when passing invalid json")
+	}
+}
+
+func TestCache_MarshalShouldBeSame_AfterUnmarshallingInvalidJSON(t *testing.T) {
+	obj := testStruct{A: 1, B: "hi"}
+	err := obj.cache.Update(obj)
 	if err != nil {
 		t.Error(err)
 	}
-	cacher_copy := &testCacher{A: 9, B: false}
-	cacher.A = cacher_copy.A
-	cacher.B = cacher_copy.B
-	Update(cacher)
-	data, err := Marshal(cacher)
+	data, err := obj.cache.Marshal()
 	if err != nil {
 		t.Error(err)
 	}
-	data_copy, err := Marshal(cacher_copy)
+	invalid_json := []byte("w8345uiwj8ur")
+	_ = obj.cache.Unmarshal(invalid_json, &obj)
+	data_copy, err := obj.cache.Marshal()
 	if err != nil {
 		t.Error(err)
 	}
 	if !bytes.Equal(data, data_copy) {
-		t.Error("The following should be equal:")
-		t.Log("Data:", string(data))
-		t.Log("Data Copy:", string(data_copy))
+		t.Errorf("%v != %v", string(data), string(data_copy))
 	}
 }
 
-func TestMarshal_AfterUnmarshalIsCalled_ShouldReturnUpdatedResult(t *testing.T) {
-	cacher1 := &testCacher{A: 1, B: true}
-	cacher2 := &testCacher{A: 4, B: false}
-	_, err := Marshal(cacher1)
+func TestCache_MarshalShouldRepresentX_AfterUpdateWithX(t *testing.T) {
+	obj := testStruct{A: 1, B: "hi"}
+	data := []byte(`{"A":1,"B":"hi"}`)
+	err := obj.cache.Update(obj)
 	if err != nil {
 		t.Error(err)
 	}
-	data, err := Marshal(cacher2)
-	if err != nil {
-		t.Error(err)
-	}
-	err = Unmarshal(data, cacher1)
-	if err != nil {
-		t.Error(err)
-	}
-	data_copy, err := Marshal(cacher1)
+	data_copy, err := obj.cache.Marshal()
 	if err != nil {
 		t.Error(err)
 	}
 	if !bytes.Equal(data, data_copy) {
-		t.Error("The following should be equal:")
-		t.Log("Data:", string(data))
-		t.Log("Data Copy:", string(data_copy))
+		t.Errorf("%v != %v", string(data), string(data_copy))
+	}
+}
+
+func TestCache_UpdateReturnsError_WhenObjectHasNoJSONRepresentation(t *testing.T) {
+	no_json_representation := make(chan int)
+	cache := Cache{}
+	err := cache.Update(no_json_representation)
+	if err == nil {
+		t.Error("Expected error when calling update with an object that has no json representation")
 	}
 }

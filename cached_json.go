@@ -5,56 +5,46 @@ import (
 	"fmt"
 )
 
-type Cacher interface {
-	GetCachedJSON() *Cache
-}
-
 type Cache struct {
 	data []byte
 }
 
-func getCachedJSON(cacher Cacher) (*Cache, error) {
-	cached_json := cacher.GetCachedJSON()
-	if cached_json == nil {
-		return nil, fmt.Errorf("%T.GetCachedJSON() should not return nil", cacher)
-	}
-	return cached_json, nil
+func (cache *Cache) Clear() {
+	cache.data = nil
 }
 
-func Marshal(cacher Cacher) ([]byte, error) {
-	cached_json, err := getCachedJSON(cacher)
-	if err != nil {
-		return nil, err
-	}
-	if cached_json.data != nil {
-		return cached_json.data, nil
-	}
-	data, err := json.Marshal(cacher)
-	if err != nil {
-		return nil, err
-	}
-	cached_json.data = data
-	return data, nil
+func (cache *Cache) IsEmpty() bool {
+	return cache.data == nil
 }
 
-func Unmarshal(data []byte, cacher Cacher) error {
-	cached_json, err := getCachedJSON(cacher)
+func (cache *Cache) Marshal() ([]byte, error) {
+	if cache.IsEmpty() {
+		return nil, fmt.Errorf("JSON cache is empty")
+	}
+	return cache.data, nil
+}
+
+func (cache *Cache) Unmarshal(data []byte, obj interface{}) error {
+	err := json.Unmarshal(data, obj)
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(data, cacher)
-	if err != nil {
-		return err
-	}
-	cached_json.data = data
+	cache.data = data
 	return nil
 }
 
-func Update(cacher Cacher) error {
-	cached_json, err := getCachedJSON(cacher)
+func (cache *Cache) Update(obj interface{}) error {
+	data, err := json.Marshal(obj)
 	if err != nil {
 		return err
 	}
-	cached_json.data = nil
+	cache.data = data
+	return nil
+}
+
+func (cache *Cache) UpdateIfEmpty(obj interface{}) error {
+	if cache.IsEmpty() {
+		return cache.Update(obj)
+	}
 	return nil
 }

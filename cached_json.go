@@ -8,11 +8,14 @@ import (
 type Cache interface {
 	json.Marshaler
 	json.Unmarshaler
+	sync.Locker
+	RLock()
+	RUnlock()
 	Update()
 }
 
 type cache struct {
-	sync.Mutex
+	sync.RWMutex
 	obj  interface{}
 	data []byte
 }

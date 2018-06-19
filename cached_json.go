@@ -2,71 +2,52 @@ package cachedjson
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
 )
 
-type Cache struct {
-	mutex sync.RWMutex
-	data  []byte
+type Cache interface {
+	json.Marshaler
+	json.Unmarshaler
+	Update()
 }
 
-func (cache *Cache) Clear() {
-	cache.mutex.Lock()
-	cache.data = nil
-	cache.mutex.Unlock()
+type cache struct {
+	sync.Mutex
+	obj  interface{}
+	data []byte
 }
 
-func (cache *Cache) IsEmpty() bool {
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
-	return cache.isEmpty()
+func New(obj interface{}) Cache {
+	return &cache{obj: obj}
 }
 
-func (cache *Cache) isEmpty() bool {
-	return cache.data == nil
-}
-
-func (cache *Cache) Marshal() ([]byte, error) {
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
-	if cache.isEmpty() {
-		return nil, fmt.Errorf("JSON cache is empty")
+func (c *cache) MarshalJSON() ([]byte, error) {
+	c.Lock()
+	defer c.Unlock()
+	if c.data != nil {
+		return c.data, nil
 	}
-	return cache.data, nil
+	data, err := json.Marshal(c.obj)
+	if err != nil {
+		return nil, err
+	}
+	c.data = data
+	return data, nil
 }
 
-func (cache *Cache) Unmarshal(data []byte, obj interface{}) error {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	err := json.Unmarshal(data, obj)
+func (c *cache) UnmarshalJSON(data []byte) error {
+	c.Lock()
+	defer c.Unlock()
+	err := json.Unmarshal(data, c.obj)
 	if err != nil {
 		return err
 	}
-	cache.data = data
+	c.data = data
 	return nil
 }
 
-func (cache *Cache) Update(obj interface{}) error {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	return cache.update(obj)
-}
-
-func (cache *Cache) update(obj interface{}) error {
-	data, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-	cache.data = data
-	return nil
-}
-
-func (cache *Cache) UpdateIfEmpty(obj interface{}) error {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	if cache.isEmpty() {
-		return cache.update(obj)
-	}
-	return nil
+func (c *cache) Update() {
+	c.Lock()
+	defer c.Unlock()
+	c.data = nil
 }

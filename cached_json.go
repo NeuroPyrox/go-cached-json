@@ -2,20 +2,15 @@ package cachedjson
 
 import (
 	"encoding/json"
-	"sync"
 )
 
 type Cache interface {
 	json.Marshaler
 	json.Unmarshaler
-	sync.Locker
-	RLock()
-	RUnlock()
 	Update()
 }
 
 type cache struct {
-	sync.RWMutex
 	obj  interface{}
 	data []byte
 }
@@ -25,8 +20,6 @@ func New(obj interface{}) Cache {
 }
 
 func (c *cache) MarshalJSON() ([]byte, error) {
-	c.Lock()
-	defer c.Unlock()
 	if c.data != nil {
 		return c.data, nil
 	}
@@ -39,8 +32,6 @@ func (c *cache) MarshalJSON() ([]byte, error) {
 }
 
 func (c *cache) UnmarshalJSON(data []byte) error {
-	c.Lock()
-	defer c.Unlock()
 	err := json.Unmarshal(data, c.obj)
 	if err != nil {
 		return err
@@ -50,7 +41,5 @@ func (c *cache) UnmarshalJSON(data []byte) error {
 }
 
 func (c *cache) Update() {
-	c.Lock()
-	defer c.Unlock()
 	c.data = nil
 }
